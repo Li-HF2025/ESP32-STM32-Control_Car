@@ -34,6 +34,7 @@ extern "C" {
 #include "FreeRTOS.h"
 #include "Serial.h"
 #include "OLED.h"
+#include "Motor.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

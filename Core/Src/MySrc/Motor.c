@@ -10,6 +10,19 @@
 #define PWM_R1_Pin GPIO_PIN_6
 #define PWM_R2_Pin GPIO_PIN_7
 
+// 电机方向控制引脚（通过 TCA9555 控制）
+
+#define STBY1_Pin 0
+#define M1_IN2_Pin 1 // P0_1
+#define M2_IN1_Pin 2 // P0_2
+#define M2_IN2_Pin 3 // P0_3
+#define M3_IN1_Pin 4 // P0_4
+#define STBY2_Pin 8
+#define M3_IN2_Pin 9 // P0_11
+#define M4_IN1_Pin 10 // P0_12
+#define M4_IN2_Pin 11 // P0_13
+#define M1_IN1_Pin 12 // P0_14
+
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim4;
 
@@ -20,34 +33,29 @@ static inline uint16_t clamp_pwm(int v) {
     return (uint16_t)((v * PWM_MAX) / 1000);
 }
 // 根据速度设置电机方向和PWM占空比
-static void motor_dir(GPIO_TypeDef* in1_port, uint16_t in1_pin,
-                      GPIO_TypeDef* in2_port, uint16_t in2_pin,
-                      int speed)
+static void motor_dir( uint8_t in1_pin,uint8_t in2_pin,int speed)
 {
     if (speed > 0) {
-        HAL_GPIO_WritePin(in1_port, in1_pin, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(in2_port, in2_pin, GPIO_PIN_RESET);
+        TCA9555_SetPin(in1_pin, true);
+        TCA9555_SetPin(in2_pin, false);
     } else if (speed < 0) {
-        HAL_GPIO_WritePin(in1_port, in1_pin, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(in2_port, in2_pin, GPIO_PIN_SET);
+        TCA9555_SetPin(in1_pin, false);
+        TCA9555_SetPin(in2_pin, true);
     } else {
         // 滑行停止（coast）
-        HAL_GPIO_WritePin(in1_port, in1_pin, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(in2_port, in2_pin, GPIO_PIN_RESET);
+        TCA9555_SetPin(in1_pin, false);
+        TCA9555_SetPin(in2_pin, false);
     }
 }
 
 void TB6612_Init(void)
 {
-    // // 1) 先禁用驱动（避免上电乱转）
-    // HAL_GPIO_WritePin(STBY1_GPIO_Port, STBY1_Pin, GPIO_PIN_RESET);
-    // HAL_GPIO_WritePin(STBY2_GPIO_Port, STBY2_Pin, GPIO_PIN_RESET);
+    // 1) 初始化 TCA9555，设置所有引脚为输出并拉低
+    TCA9555_Init_AllOutput_Low();
 
-    // // 2) 方向脚先置为停止
-    // motor_dir(M1_IN1_Port, M1_IN1_Pin, M1_IN2_Port, M1_IN2_Pin, 0);
-    // motor_dir(M2_IN1_Port, M2_IN1_Pin, M2_IN2_Port, M2_IN2_Pin, 0);
-    // motor_dir(M3_IN1_Port, M3_IN1_Pin, M3_IN2_Port, M3_IN2_Pin, 0);
-    // motor_dir(M4_IN1_Port, M4_IN1_Pin, M4_IN2_Port, M4_IN2_Pin, 0);
+    // 2) 根据电路连接，设置初始状态（比如让所有电机都处于停止状态）
+    TCA9555_SetPin(STBY1_Pin, false); // 先让驱动处于待机状态
+    TCA9555_SetPin(STBY2_Pin, false);
 
     // 3) PWM 占空比清零
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0); // M1
@@ -62,16 +70,16 @@ void TB6612_Init(void)
     HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
 
     // 5) 使能驱动
-    // HAL_GPIO_WritePin(STBY1_GPIO_Port, STBY1_Pin, GPIO_PIN_SET);
-    // HAL_GPIO_WritePin(STBY2_GPIO_Port, STBY2_Pin, GPIO_PIN_SET);
+    TCA9555_SetPin(STBY1_Pin, true);
+    TCA9555_SetPin(STBY2_Pin, true);
 }
 void Motor_Set(int m1, int m2, int m3, int m4)
 {
     // 方向
-    // motor_dir(M1_IN1_Port, M1_IN1_Pin, M1_IN2_Port, M1_IN2_Pin, m1);
-    // motor_dir(M2_IN1_Port, M2_IN1_Pin, M2_IN2_Port, M2_IN2_Pin, m2);
-    // motor_dir(M3_IN1_Port, M3_IN1_Pin, M3_IN2_Port, M3_IN2_Pin, m3);
-    // motor_dir(M4_IN1_Port, M4_IN1_Pin, M4_IN2_Port, M4_IN2_Pin, m4);
+    motor_dir(M1_IN2_Pin, M2_IN1_Pin, -m1);
+    motor_dir(M2_IN2_Pin, M3_IN1_Pin, -m2);
+    motor_dir(M3_IN2_Pin, M4_IN1_Pin, -m3);
+    motor_dir(M4_IN2_Pin, M1_IN1_Pin, -m4);
 
     // PWM
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, clamp_pwm(m1));

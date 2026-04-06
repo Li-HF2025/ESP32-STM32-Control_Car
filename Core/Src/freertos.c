@@ -79,15 +79,6 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
   */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
-  if (serial_rx_queueBit == NULL) {
-    OLED_WriteString(0, 0, "Queue Err");
-    while(1); // 队列创建失败，停在这里
-  }
-  
-  if (Main_queue == NULL) {
-    OLED_WriteString(0, 0, "Main Queue Err");
-    while(1);
-  }
   Serial_Init();
 
 
@@ -179,7 +170,7 @@ void Serial_RX_Task(void* params)
       {
         frame_started = 1;
         rx_index = 0;
-        OLED_WriteString(1, 0, "Receiving...");
+        // OLED_WriteString(1, 0, "Receiving...");
         continue;
       }
 
@@ -237,8 +228,9 @@ void Main_Task(void* params)
       if(bits==1){
         (void)xQueueSend(WIFI_Control_queue, &xReceivedMessage, portMAX_DELAY);
       }
-      if(strcmp(xReceivedMessage.ucData, "WifiControl") == 0){
+      if(strcmp(xReceivedMessage.ucData, "Wifi") == 0){
         bits=1;
+        // OLED_WriteString(4, 0, "WiFi Control Mode");
       }
     }
   }
@@ -253,20 +245,21 @@ void WIFI_Control_Task(void* params)
     if (xQueueReceive(WIFI_Control_queue, &xReceivedMessage, portMAX_DELAY) == pdPASS)
     {
       // 在这里处理来自 Main_Task 的消息
-      // OLED_WriteString(3, 0, "WiFi Control Msg:");
+      // OLED_WriteString(4, 0, "             ");
       // OLED_WriteString(4, 0, xReceivedMessage.ucData);
       // 根据消息内容执行相应的操作
       if(strcmp(xReceivedMessage.ucData, "Forward") == 0){
-        Motor_Set(200, 200, 200, 200);
+        OLED_WriteString(3, 0, "Moving Forward");
+        Motor_Set(300, 300, 300, 300);
       }
       else if(strcmp(xReceivedMessage.ucData, "Backward") == 0){
-        Motor_Set(-200, -200, -200, -200);
+        Motor_Set(-300, -300, -300, -300);
       }
       else if(strcmp(xReceivedMessage.ucData, "Left") == 0){
-        Motor_Set(-100, 100, -100, 100);
+        Motor_Set(-400, -400, 400, 400);
       }
       else if(strcmp(xReceivedMessage.ucData, "Right") == 0){
-        Motor_Set(100, -100, 100, -100);
+        Motor_Set(400, 400, -400, -400);
       }
       else if(strcmp(xReceivedMessage.ucData, "Stop") == 0){
         Motor_Stop();
